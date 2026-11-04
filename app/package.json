@@ -1,0 +1,9 @@
+{
+  "name": "pulsedeck-network",
+  "productName": "PulseDeck",
+  "version": "1.0.0",
+  "main": "main.cjs",
+  "type": "module",
+  "author": "dmitriiavdeev",
+  "license": "MIT"
+}

@@ -1,0 +1,22 @@
+{
+  "name": "pulsedeck-network",
+  "version": "1.0.0",
+  "description": "Локальный монитор серверов и сетевые инструменты для Windows",
+  "author": "dmitriiavdeev",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:ui": "node scripts/test-ui.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "@resvg/resvg-js": "2.6.2",
+    "electron": "44.9.1",
+    "playwright": "1.64.0",
+    "prettier": "3.9.10"
+  }
+}

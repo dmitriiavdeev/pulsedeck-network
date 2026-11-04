@@ -1,0 +1,11 @@
+node_modules/
+build/
+release/
+test-results/
+app/native/*.exe
+app/assets/*.png
+app/assets/*.ico
+app/assets/sounds/
+app/LICENSE
+*.log
+.env*

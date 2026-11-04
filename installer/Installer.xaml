@@ -1,0 +1,74 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PulseDeck" Width="820" Height="510" WindowStartupLocation="CenterScreen"
+        WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
+        FontFamily="Segoe UI" UseLayoutRounding="True">
+  <Window.Resources>
+    <Style TargetType="Button">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value><ControlTemplate TargetType="Button">
+          <Border x:Name="buttonBorder" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="buttonBorder" Property="Opacity" Value=".85"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="buttonBorder" Property="Opacity" Value=".45"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="CheckBox">
+      <Setter Property="Margin" Value="0,0,0,15"/><Setter Property="FontSize" Value="14"/>
+      <Setter Property="Foreground" Value="#344054"/><Setter Property="Cursor" Value="Hand"/>
+    </Style>
+  </Window.Resources>
+  <Border CornerRadius="20" BorderBrush="#D8DFE8" BorderThickness="1" Background="#F8FAFC" ClipToBounds="True">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="310"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Border Background="#14281E" CornerRadius="19,0,0,19">
+        <Grid Margin="32,34,28,28">
+          <StackPanel>
+            <StackPanel Orientation="Horizontal">
+              <Image x:Name="BrandIcon" Width="36" Height="36" Margin="0,0,11,0"/>
+              <TextBlock x:Name="BrandName" Text="PulseDeck" Foreground="#F5F9FC" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock x:Name="BrandEyebrow" Text="NETWORK TOOLS" Foreground="#98B29F" FontSize="10" Margin="0,49,0,17"/>
+            <TextBlock x:Name="BrandTitle" Text="Ваша сеть.&#10;Перед глазами." FontSize="34" FontWeight="SemiBold" LineHeight="43" Foreground="#B1EDBF"/>
+            <TextBlock x:Name="BrandSubtitle" Text="Серверы, сайты и устройства. Спокойствие в одном окне." Foreground="#BBCDBC" FontSize="14" TextWrapping="Wrap" LineHeight="22" Margin="0,18,0,0"/>
+            <Border Background="#213B2B" CornerRadius="12" Padding="16" Margin="0,26,0,0">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12"><Ellipse Fill="#A4EDB4" Width="7" Height="7" Margin="0,0,7,0"/><TextBlock x:Name="MiniStatus" Text="Связь восстановлена" Foreground="#DCEBDD" FontSize="11"/></StackPanel>
+                <Path Stroke="#A4EDB4" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M0,22 L38,22 51,5 66,39 81,16 97,22 183,22" Height="42" Stretch="Fill"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+          <TextBlock Text="WINDOWS 10 / 11 · 64-BIT" Foreground="#8EA3BE" FontSize="10" VerticalAlignment="Bottom"/>
+        </Grid>
+      </Border>
+      <Grid Grid.Column="1" Margin="36,32,36,30">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid><TextBlock x:Name="Step" Text="ДЛЯ WINDOWS" FontSize="10" Foreground="#75839A" Margin="0,8,0,0"/><ComboBox x:Name="Language" Width="110" Height="28" HorizontalAlignment="Right" Margin="0,0,8,0"><ComboBoxItem Content="English"/><ComboBoxItem Content="Русский"/></ComboBox></Grid>
+        <StackPanel Grid.Row="1" VerticalAlignment="Center">
+          <TextBlock x:Name="Heading" Text="Добро пожаловать" FontSize="27" FontWeight="SemiBold" Foreground="#17233B" Margin="0,0,0,13"/>
+          <TextBlock x:Name="Description" Text="Установите PulseDeck и добавьте адреса, за которыми хотите наблюдать." Foreground="#66758B" FontSize="14" TextWrapping="Wrap" LineHeight="22" Margin="0,0,0,26"/>
+          <StackPanel x:Name="Options">
+            <CheckBox x:Name="Autostart" Content="Запускать при входе в Windows" IsChecked="False"/>
+            <CheckBox x:Name="Shortcut" Content="Создать ярлык на рабочем столе" IsChecked="True"/>
+            <TextBlock x:Name="InstallNote" Text="Без прав администратора. Только для вашего пользователя Windows." Foreground="#8994A5" FontSize="12" TextWrapping="Wrap" LineHeight="18" Margin="0,8,0,0"/>
+          </StackPanel>
+          <StackPanel x:Name="ProgressPanel" Visibility="Collapsed">
+            <ProgressBar x:Name="Progress" Height="7" Maximum="100" BorderThickness="0" Background="#E3EAEF" Foreground="#39B895"/>
+            <TextBlock x:Name="Status" Text="Подготавливаем приложение…" Foreground="#66758B" FontSize="12" TextWrapping="Wrap" Margin="0,13,0,0"/>
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="2">
+          <Button x:Name="Primary" Content="Установить PulseDeck" Height="48" Background="#276C42" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
+          <TextBlock x:Name="Version" Text="Версия 1.0.0" Foreground="#8994A5" FontSize="11" HorizontalAlignment="Center" Margin="0,13,0,0"/>
+        </StackPanel>
+      </Grid>
+      <Button x:Name="Close" Grid.Column="1" Content="×" FontSize="23" Foreground="#8390A3" Background="Transparent" Width="36" Height="36" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,9,10,0"/>
+    </Grid>
+  </Border>
+</Window>
