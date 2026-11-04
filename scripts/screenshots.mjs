@@ -16,10 +16,6 @@ const directory = join(root, "test-results", "screenshots-" + Date.now());
 const output = join(root, "docs/screenshots");
 await mkdir(directory, { recursive: true });
 await mkdir(output, { recursive: true });
-const data = emptyData();
-data.settings.language = "en";
-data.settings.sound = false;
-data.settings.desktop = false;
 const examples = [
   {
     name: "Gateway",
@@ -74,103 +70,147 @@ const examples = [
     base: 39,
   },
 ];
-const now = Date.now();
-for (let i = 0; i < examples.length; i++) {
-  const entry = examples[i],
-    monitor = cleanMonitor(entry),
-    state = freshState();
-  for (let n = 0; n < 120; n++) {
-    const ok = !(entry.down && n > 108) && !(i === 2 && n >= 103 && n <= 105);
-    applyResult(
-      state,
-      {
-        ok,
-        latency: ok
-          ? entry.base + Math.round(Math.sin(n * 1.3 + i) * 5 + 5)
-          : null,
-        detail:
-          monitor.type === "http"
-            ? "HTTP 200"
-            : monitor.type === "tcp"
-              ? `Порт ${monitor.port} открыт`
-              : ok
-                ? "Ответ ICMP"
-                : "Нет ответа ICMP",
-      },
-      defaults,
-      now - (119 - n) * 15000,
-    );
-  }
-  data.monitors.push(monitor);
-  data.states[monitor.id] = state;
-}
-data.events = [
-  {
-    id: "demo-1",
-    at: now - 20000,
-    message: "",
-    level: "success",
-    code: "recovered",
-    values: { name: "Storefront" },
-  },
-  {
-    id: "demo-2",
-    at: now - 160000,
-    message: "",
-    level: "warning",
-    code: "lost",
-    values: { name: "Backup storage" },
-  },
-  {
-    id: "demo-3",
-    at: now - 360000,
-    message: "",
-    level: "info",
-    code: "started",
-    values: {},
-  },
+const russianNames = [
+  "Основной шлюз",
+  "Сервер приложения",
+  "Интернет-магазин",
+  "База данных",
+  "Резервное хранилище",
+  "Тестовый сервер",
+  "Документация",
 ];
-await writeFile(join(directory, "pulsedeck.json"), JSON.stringify(data));
-const env = {
-  ...process.env,
-  PULSEDECK_TEST: "1",
-  PULSEDECK_TEST_DATA: directory,
+const russianGroups = {
+  "Core network": "Локальная сеть",
+  Production: "Рабочие сервисы",
+  Storage: "Хранилища",
+  Development: "Разработка",
 };
-delete env.ELECTRON_RUN_AS_NODE;
-const application = await electron.launch({
-  executablePath: require("electron"),
-  args: [join(root, "app")],
-  env,
-});
-try {
-  const window = await application.firstWindow();
-  await window.waitForSelector(".host-title");
-  await application.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].setSize(1280, 1020),
+
+function demonstrationData(language) {
+  const data = emptyData();
+  data.settings.language = language;
+  data.settings.theme = language === "ru" ? "light" : "dark";
+  data.settings.sound = false;
+  data.settings.desktop = false;
+  const now = new Date("2026-11-04T12:30:00Z").getTime();
+  for (let i = 0; i < examples.length; i++) {
+    const entry = {
+        ...examples[i],
+        ...(language === "ru"
+          ? { name: russianNames[i], group: russianGroups[examples[i].group] }
+          : {}),
+      },
+      monitor = cleanMonitor(entry),
+      state = freshState();
+    for (let n = 0; n < 120; n++) {
+      const ok = !(entry.down && n > 108) && !(i === 2 && n >= 103 && n <= 105);
+      applyResult(
+        state,
+        {
+          ok,
+          latency: ok
+            ? entry.base + Math.round(Math.sin(n * 1.3 + i) * 5 + 5)
+            : null,
+          detail:
+            monitor.type === "http"
+              ? "HTTP 200"
+              : monitor.type === "tcp"
+                ? `Порт ${monitor.port} открыт`
+                : ok
+                  ? "Ответ ICMP"
+                  : "Нет ответа ICMP",
+        },
+        defaults,
+        now - (119 - n) * 15000,
+      );
+    }
+    data.monitors.push(monitor);
+    data.states[monitor.id] = state;
+  }
+  data.events = [
+    {
+      id: "demo-1",
+      at: now - 20000,
+      message: "",
+      level: "success",
+      code: "recovered",
+      values: { name: data.monitors[2].name },
+    },
+    {
+      id: "demo-2",
+      at: now - 160000,
+      message: "",
+      level: "warning",
+      code: "lost",
+      values: { name: data.monitors[4].name },
+    },
+    {
+      id: "demo-3",
+      at: now - 360000,
+      message: "",
+      level: "info",
+      code: "started",
+      values: {},
+    },
+  ];
+  return data;
+}
+
+for (const language of ["en", "ru"]) {
+  const languageDirectory = join(directory, language);
+  await mkdir(languageDirectory, { recursive: true });
+  await writeFile(
+    join(languageDirectory, "pulsedeck.json"),
+    JSON.stringify(demonstrationData(language)),
   );
-  await window.screenshot({ path: join(output, "overview-en.png") });
-  await window.click("[data-view=tools]");
-  await window.screenshot({ path: join(output, "tools-en.png") });
-  await window.click("[data-view=settings]");
-  await window.selectOption("[name=language]", "ru");
-  await window.selectOption("[name=theme]", "light");
-  await window.click("#settings-form [type=submit]");
-  await window.waitForFunction(() => document.documentElement.lang === "ru");
-  await window.waitForSelector("#toast:not(.visible)");
-  await window.click("[data-view=monitors]");
-  await window.screenshot({ path: join(output, "overview-ru.png") });
-  await window.click("[data-view=settings]");
-  await window.selectOption("[name=theme]", "dark");
-  await window.click("#settings-form [type=submit]");
-  await window.waitForFunction(
-    () => document.documentElement.dataset.theme === "dark",
-  );
-  await window.waitForSelector("#toast:not(.visible)");
-  await window.locator(".main").evaluate((el) => (el.scrollTop = 0));
-  await window.screenshot({ path: join(output, "settings-ru.png") });
-  console.log(
-    "Captured real application windows with documentation-only example data.",
-  );
-} finally {
-  await application.close();
+  const env = {
+    ...process.env,
+    PULSEDECK_TEST: "1",
+    PULSEDECK_TEST_DATA: languageDirectory,
+  };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const application = await electron.launch({
+    executablePath: require("electron"),
+    args: [join(root, "app")],
+    env,
+  });
+  try {
+    const window = await application.firstWindow();
+    await window.waitForSelector(".host-title");
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(1280, 1020),
+    );
+    await window.waitForFunction(
+      (expected) => document.documentElement.lang === expected,
+      language,
+    );
+    await window.screenshot({
+      path: join(output, `overview-${language}.png`),
+      animations: "disabled",
+    });
+    await window.click("[data-view=tools]");
+    await window.screenshot({
+      path: join(output, `tools-${language}.png`),
+      animations: "disabled",
+    });
+    await window.click("[data-view=settings]");
+    const settingsTheme = language === "ru" ? "dark" : "light";
+    await window.selectOption("[name=theme]", settingsTheme);
+    await window.click("#settings-form [type=submit]");
+    await window.waitForFunction(
+      (expected) => document.documentElement.dataset.theme === expected,
+      settingsTheme,
+    );
+    await window.waitForSelector("#toast:not(.visible)");
+    await window.locator(".main").evaluate((el) => (el.scrollTop = 0));
+    await window.screenshot({
+      path: join(output, `settings-${language}.png`),
+      animations: "disabled",
+    });
+    console.log(
+      `Captured ${language} application windows with localized demonstration data.`,
+    );
+  } finally {
+    await application.close();
+  }
 }
