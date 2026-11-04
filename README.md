@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/banner-ru.svg" alt="PulseDeck — ваши серверы под наблюдением" width="100%"></p>
 
-<p align="center"><a href="https://github.com/dmitriiavdeev/pulsedeck-network/releases/download/v1.1.0/PulseDeck-Setup-1.1.0-x64.exe"><strong>Скачать для Windows</strong></a> · <a href="README.en.md">English</a></p>
+<p align="center"><a href="https://github.com/dmitriiavdeev/pulsedeck-network/releases/download/v1.1.1/PulseDeck-Setup-1.1.1-x64.exe"><strong>Скачать для Windows</strong></a> · <a href="README.en.md">English</a></p>
 <p align="center">Windows 10 и 11 · 64-разрядная версия · Бесплатно</p>
 
 **PulseDeck следит за доступностью серверов, сайтов и сетевых устройств.** Добавьте нужные адреса и получайте уведомления, когда связь пропадает или восстанавливается.

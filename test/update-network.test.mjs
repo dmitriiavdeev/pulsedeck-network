@@ -5,6 +5,31 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const https = require("node:https");
 const { request } = require("../app/update-network.cjs");
+
+test("release metadata uses the JSON media type accepted by the GitHub API", async () => {
+  const original = https.get;
+  https.get = (_, options, callback) => {
+    const req = new EventEmitter();
+    req.destroy = () => {};
+    setImmediate(() => {
+      const res = new EventEmitter();
+      res.statusCode = options.headers.Accept === "application/json" ? 200 : 415;
+      res.headers = {};
+      callback(res);
+      res.emit("data", Buffer.from('{"tag_name":"v1.2.0"}'));
+      res.emit("end");
+    });
+    return req;
+  };
+  try {
+    const data = await request(
+      "https://api.github.com/repos/example/project/releases/latest",
+    );
+    assert.equal(JSON.parse(data).tag_name, "v1.2.0");
+  } finally {
+    https.get = original;
+  }
+});
 test("partial downloads require the exact range and never fall back to a full file", async () => {
   const original = https.get;
   let status = 206,

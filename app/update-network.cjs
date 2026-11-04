@@ -31,7 +31,10 @@ function request(
       {
         headers: {
           "User-Agent": "PulseDeck-Updater",
-          Accept: "application/octet-stream",
+          Accept:
+            new URL(url).hostname === "api.github.com"
+              ? "application/json"
+              : "application/octet-stream",
           "Accept-Encoding": "identity",
           ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}),
         },

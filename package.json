@@ -1,6 +1,6 @@
 {
   "name": "pulsedeck-network",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Локальный монитор серверов и сетевые инструменты для Windows",
   "author": "dmitriiavdeev",
   "license": "MIT",
