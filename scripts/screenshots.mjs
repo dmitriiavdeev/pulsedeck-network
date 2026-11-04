@@ -57,7 +57,7 @@ const examples = [
   {
     name: "Staging SSH",
     address: "198.51.100.12",
-    type: "tcp",
+    type: "ssh",
     port: 22,
     group: "Development",
     base: 22,
@@ -112,13 +112,15 @@ function demonstrationData(language) {
             ? entry.base + Math.round(Math.sin(n * 1.3 + i) * 5 + 5)
             : null,
           detail:
-            monitor.type === "http"
-              ? "HTTP 200"
-              : monitor.type === "tcp"
-                ? `Порт ${monitor.port} открыт`
-                : ok
-                  ? "Ответ ICMP"
-                  : "Нет ответа ICMP",
+            monitor.type === "ssh"
+              ? "sshGreeting"
+              : monitor.type === "http"
+                ? "HTTP 200"
+                : monitor.type === "tcp"
+                  ? `Порт ${monitor.port} открыт`
+                  : ok
+                    ? "Ответ ICMP"
+                    : "Нет ответа ICMP",
         },
         defaults,
         now - (119 - n) * 15000,

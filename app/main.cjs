@@ -18,6 +18,7 @@ const { cleanMonitor, cleanSettings, parseImport } = require("./core.cjs");
 const { Engine } = require("./engine.cjs");
 const { Storage } = require("./storage.cjs");
 const probes = require("./probes.cjs");
+const { Updater } = require("./updater.cjs");
 const telegram = require("./telegram.cjs");
 const { t, errorText } = require("./locale.cjs");
 
@@ -39,6 +40,7 @@ let main,
   tray,
   engine,
   storage,
+  updater,
   token = "",
   quitting = false,
   saveTimer,
@@ -99,6 +101,7 @@ function snapshot() {
         }).openAtLogin,
     version: app.getVersion(),
     warning: startupWarning,
+    appUpdate: updater?.state,
   };
 }
 function update() {
@@ -144,7 +147,8 @@ function register(name, handler) {
 }
 function notification(alerts) {
   const settings = engine.data.settings;
-  const message = (a) => tr("event." + a.kind, { name: a.name });
+  const message = (a) =>
+    tr("event." + (a.type === "ssh" ? "ssh." : "") + a.kind, { name: a.name });
   if (settings.sound) main.webContents.send("pulsedeck:alert");
   if (settings.desktop && Notification.isSupported()) {
     try {
@@ -175,7 +179,7 @@ function notification(alerts) {
         at: Date.now(),
       });
     for (const a of alerts) {
-      const line = `\n${message(a)}\n${a.address}${a.type === "tcp" ? ":" + a.port : ""} · ${a.type.toUpperCase()}${a.latency != null ? " · " + a.latency + " " + tr("ms") : ""}\n${new Date(a.at).toLocaleString(settings.language === "ru" ? "ru-RU" : "en-GB")}\n`;
+      const line = `\n${message(a)}\n${a.address}${["tcp", "ssh"].includes(a.type) ? ":" + a.port : ""} · ${a.type.toUpperCase()}${a.latency != null ? " · " + a.latency + " " + tr("ms") : ""}\n${new Date(a.at).toLocaleString(settings.language === "ru" ? "ru-RU" : "en-GB")}\n`;
       if (text.length + line.length > 3500) {
         enqueue();
         text = tr("alertTelegram") + "\n";
@@ -251,6 +255,17 @@ function addMany(text) {
   return { added: added.length, skipped: incoming.length - added.length };
 }
 function bind() {
+  register("checkUpdate", () => updater.check());
+  register("downloadUpdate", () => updater.download());
+  register("applyUpdate", async () => {
+    // Persist the live profile before handing over to the replacement process.
+    storage.save(engine.data);
+    if (await updater.apply(engine.data.settings.language)) {
+      quitting = true;
+      app.quit();
+    }
+    return true;
+  });
   register("snapshot", snapshot);
   register("start", () => {
     engine.start();
@@ -381,13 +396,13 @@ function bind() {
   register("diagnose", async (input) => {
     if (input.type === "dns") return probes.lookup(input.address);
     if (input.type === "tls") return probes.certificate(input.address);
-    if (input.type === "tcp") {
+    if (["tcp", "ssh"].includes(input.type)) {
       const m = cleanMonitor({
-        type: "tcp",
+        type: input.type,
         address: input.address,
         port: input.port,
       });
-      return probes.tcp(m.address, m.port, 5000);
+      return probes[input.type](m.address, m.port, 5000);
     }
     throw Error("Неизвестный инструмент.");
   });
@@ -417,7 +432,7 @@ else {
   });
   app
     .whenReady()
-    .then(() => {
+    .then(async () => {
       if (process.argv.includes("--quit-for-update")) {
         quitting = true;
         return app.quit();
@@ -460,6 +475,20 @@ else {
       engine.on("change", update);
       engine.on("save", save);
       engine.on("alerts", notification);
+      updater = new Updater({
+        version: app.getVersion(),
+        directory: require("node:path").dirname(app.getPath("exe")),
+        profile,
+        enabled: app.isPackaged && !testing,
+        notify: update,
+        helper: app.isPackaged
+          ? join(
+              process.resourcesPath,
+              "app.asar.unpacked/native/UpdateHelper.exe",
+            )
+          : join(__dirname, "native/UpdateHelper.exe"),
+      });
+      await updater.restoreResult();
       main = new BrowserWindow({
         width: 1280,
         height: 850,

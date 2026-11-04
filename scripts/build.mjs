@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { prepare, root, run } from "./prepare.mjs";
+import { buildUpdate } from "./build-update.mjs";
 await prepare();
 const metadata = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const gitSha =
@@ -112,6 +113,13 @@ function compile(file, removing) {
 compile(join(appDir, "Uninstall.exe"), true);
 const payloadHashes = {};
 await hashTree(appDir, "", payloadHashes);
+const updatePackage = await buildUpdate(
+  appDir,
+  release,
+  metadata.version,
+  gitSha,
+  payloadHashes,
+);
 await writeFile(join(build, "payload.json"), JSON.stringify(payloadHashes));
 const psQuote = (value) => "'" + value.replaceAll("'", "''") + "'";
 run("powershell.exe", [
@@ -131,6 +139,7 @@ const manifest = {
   sourceArchiveSha256: process.env.PULSEDECK_ARCHIVE_SHA256 || null,
   sourceHashes,
   payloadHashes,
+  updatePackage,
   installer: {
     name: installer.split(/[\\/]/).at(-1),
     bytes: bytes.length,

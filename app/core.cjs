@@ -31,7 +31,7 @@ function host(value) {
   throw Error("Введите IP-адрес или доменное имя без пробелов и протокола.");
 }
 function cleanMonitor(input) {
-  const type = ["ping", "tcp", "http"].includes(input.type)
+  const type = ["ping", "tcp", "http", "ssh"].includes(input.type)
     ? input.type
     : "ping";
   let address = String(input.address || "").trim();
@@ -52,8 +52,11 @@ function cleanMonitor(input) {
     u.hash = "";
     address = u.href;
   } else address = host(address);
-  const port = Number(input.port || 443);
-  if (type === "tcp" && (!Number.isInteger(port) || port < 1 || port > 65535))
+  const port = Number(input.port ?? (type === "ssh" ? 22 : 443));
+  if (
+    ["tcp", "ssh"].includes(type) &&
+    (!Number.isInteger(port) || port < 1 || port > 65535)
+  )
     throw Error("Порт должен быть от 1 до 65535.");
   return {
     id:

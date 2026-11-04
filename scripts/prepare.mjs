@@ -136,6 +136,18 @@ export async function prepare() {
     "/reference:" + join(framework, "System.Web.Extensions.dll"),
     join(root, "app/native/PingProbe.cs"),
   ]);
+  run(join(framework, "csc.exe"), [
+    "/nologo",
+    "/target:winexe",
+    "/platform:anycpu",
+    "/optimize+",
+    "/codepage:65001",
+    "/out:" + resolve(root, "app/native/UpdateHelper.exe"),
+    "/win32manifest:" + join(root, "installer/app.manifest"),
+    "/reference:" + join(framework, "System.Web.Extensions.dll"),
+    "/reference:" + join(framework, "System.Windows.Forms.dll"),
+    join(root, "app/native/UpdateHelper.cs"),
+  ]);
 }
 if (
   process.argv[1] &&

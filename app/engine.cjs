@@ -80,7 +80,7 @@ class Engine extends EventEmitter {
           message,
           result.ok ? "success" : "warning",
           monitor.id,
-          event.kind,
+          monitor.type === "ssh" ? "ssh." + event.kind : event.kind,
           { name: monitor.name },
         );
         if (shouldAlert(event, settings))

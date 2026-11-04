@@ -27,7 +27,7 @@ PulseDeck uses Electron for its desktop window and system integration. The inter
 | `app/main.cjs` | Window, tray, notifications, startup and interface request handlers |
 | `app/engine.cjs` | Monitoring loop and check queue |
 | `app/core.cjs` | Input validation, monitor state and status confirmation |
-| `app/probes.cjs` | Ping, TCP and HTTP / HTTPS checks |
+| `app/probes.cjs` | Ping, TCP, SSH and HTTP / HTTPS checks |
 | `app/native/PingProbe.cs` | Windows Ping helper |
 | `app/storage.cjs` | Settings and history storage |
 | `app/telegram.cjs` | Telegram notification delivery |
@@ -57,3 +57,13 @@ Do not commit builds, installers or local data. The source is MIT licensed; Elec
 `node scripts/screenshots.mjs` captures the app with separate demonstration data for each language. `node scripts/preview-installer.mjs` captures installer previews. These commands do not use personal settings or history.
 
 The Russian description is in `README.md`, and the English version is in `README.en.md`. Release descriptions live in `docs/releases/`. When updating the version, update the installer links in both languages.
+
+## In-app updates
+
+`app/updater.cjs` checks the latest stable GitHub release. `app/update-core.cjs` compares installed files with the manifest, reuses matching 1 MiB chunks and reconstructs changed files in a staging directory. `app/update-network.cjs` downloads only required byte ranges over HTTPS and rejects responses without range support. Chunk and file hashes are verified before installation.
+
+`scripts/build-update.mjs` produces `PulseDeck-update-<version>-x64.json` and `.pdu`. Publish both alongside the installer in the `v<version>` release. The app trusts this GitHub repository over HTTPS; the manifest has no separate publisher signature.
+
+`app/native/UpdateHelper.cs` waits for the app to exit, backs up files being replaced, installs staged files and restarts PulseDeck. Copy failures trigger rollback. Personal application data is excluded from updates. Staging files and backups remain under `updates` in the application profile.
+
+The SSH probe exchanges identification strings as defined in [RFC 4253, section 4.2](https://www.rfc-editor.org/rfc/rfc4253#section-4.2). It confirms a service response but does not perform key exchange, host key verification or account login.

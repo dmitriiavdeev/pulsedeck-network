@@ -83,6 +83,7 @@ const safe = (fn) =>
     .catch((error) => showToast(error.message));
 function detail(m) {
   const d = m.detail || "";
+  if (/^ssh[A-Z]/.test(d)) return t(d);
   if (/^HTTP \d+$/.test(d)) return d;
   const keys = {
     "Ответ ICMP": "icmpOK",
@@ -102,6 +103,14 @@ function detail(m) {
   if (/^Нет соединения с портом \d+$/.test(d))
     return t("tcpClosed", { port: m.port });
   return keys[d] ? t(keys[d]) : d;
+}
+function statusText(m) {
+  if (!m.enabled) return t("disabled");
+  return m.status === "up"
+    ? t(m.type + "Responding")
+    : m.type === "ssh" && m.status === "down"
+      ? t("sshNotResponding")
+      : t(m.status);
 }
 function eventText(event) {
   return event.code
@@ -149,7 +158,7 @@ function renderView() {
     el.classList.toggle("active", el.dataset.view === view);
   const content = $("#content");
   if (view === "monitors") {
-    content.innerHTML = `${heading(t("overview"), t("subtitle"), '<span id="start-control"></span>')}${state.warning ? `<div class="banner-warning">${e(t("warningToken"))}</div>` : ""}<div class="summary" id="summary"></div><div class="section-bar"><div class="section-title"><h2>${e(t("all"))}</h2><span class="badge" id="list-count"></span></div><div class="section-buttons">${btn("export", t("export"), "up", "ghost small")}${btn("import", t("import"), "down", "ghost small")}${btn("add", t("add"), "plus", "small")}</div></div><div class="toolbar"><div class="search-box">${icon("search")}<input id="search" aria-label="${e(t("search"))}" placeholder="${e(t("search"))}" value="${e(query)}"></div><div class="filters">${["all", "up", "down"].map((s) => `<button data-filter="${s}" class="${filter === s ? "active" : ""}">${e(t(s))}</button>`).join("")}</div><select id="groups" aria-label="${e(t("group"))}"></select></div><div id="monitor-list" class="table-wrap"></div><div id="live-footer" class="status-footer"></div><p class="bottom-note">${e(t("sleep"))}</p>`;
+    content.innerHTML = `${heading(t("overview"), t("subtitle"), '<span id="start-control"></span>')}${state.warning ? `<div class="banner-warning">${e(t("warningToken"))}</div>` : ""}<div class="summary" id="summary"></div><div id="check-scope" class="check-scope hidden"></div><div class="section-bar"><div class="section-title"><h2>${e(t("all"))}</h2><span class="badge" id="list-count"></span></div><div class="section-buttons">${btn("export", t("export"), "up", "ghost small")}${btn("import", t("import"), "down", "ghost small")}${btn("add", t("add"), "plus", "small")}</div></div><div class="toolbar"><div class="search-box">${icon("search")}<input id="search" aria-label="${e(t("search"))}" placeholder="${e(t("search"))}" value="${e(query)}"></div><div class="filters">${["all", "up", "down"].map((s) => `<button data-filter="${s}" class="${filter === s ? "active" : ""}">${e(t(s))}</button>`).join("")}</div><select id="groups" aria-label="${e(t("group"))}"></select></div><div id="monitor-list" class="table-wrap"></div><div id="live-footer" class="status-footer"></div><p class="bottom-note">${e(t("sleep"))}</p>`;
     renderLive();
   } else if (view === "events") {
     content.innerHTML = `${heading(t("activityTitle"), t("activitySubtitle"), btn("export-events", t("exportCsv"), "up"))}<div class="toolbar"><div class="search-box">${icon("search")}<input id="event-search" aria-label="${e(t("eventSearch"))}" placeholder="${e(t("eventSearch"))}" value="${e(eventsQuery)}"></div><select id="event-filter" aria-label="${e(t("allEvents"))}">${["", "success", "warning", "error", "info"].map((v) => `<option value="${v}" ${v === eventsFilter ? "selected" : ""}>${e(t(v || "allEvents"))}</option>`).join("")}</select></div><div id="event-list" class="event-list"></div>`;
@@ -159,13 +168,17 @@ function renderView() {
       ["dns", "globe", "dnsTitle", "dnsText"],
       ["tls", "shield", "tlsTitle", "tlsText"],
       ["tcp", "port", "tcpTitle", "tcpText"],
+      ["ssh", "shield", "sshTitle", "sshText"],
     ]
       .map(
         ([id, symbol, title, text]) =>
-          `<section class="panel"><div class="tool-icon">${icon(symbol)}</div><h2>${e(t(title))}</h2><p>${e(t(text))}</p><form data-tool="${id}"><label class="field">${e(t(id === "tcp" ? "address" : "address"))}<input name="address" required placeholder="${id === "tcp" ? "192.0.2.10" : "example.com"}"></label>${id === "tcp" ? `<label class="field">${e(t("port"))}<input name="port" type="number" min="1" max="65535" value="443" required></label>` : ""}<button class="primary" type="submit">${icon("search")}${e(t(id === "dns" ? "lookup" : "check"))}</button></form><div class="tool-result hidden" id="result-${id}"></div></section>`,
+          `<section class="panel"><div class="tool-icon">${icon(symbol)}</div><h2>${e(t(title))}</h2><p>${e(t(text))}</p><form data-tool="${id}"><label class="field">${e(t(["tcp", "ssh"].includes(id) ? "address" : "address"))}<input name="address" required placeholder="${["tcp", "ssh"].includes(id) ? "192.0.2.10" : "example.com"}"></label>${["tcp", "ssh"].includes(id) ? `<label class="field">${e(t("port"))}<input name="port" type="number" min="1" max="65535" value="${id === "ssh" ? 22 : 443}" required></label>` : ""}<button class="primary" type="submit">${icon("search")}${e(t(id === "dns" ? "lookup" : "check"))}</button></form><div class="tool-result hidden" id="result-${id}"></div></section>`,
       )
       .join("")}</div><p class="bottom-note">${e(t("pingHelp"))}</p>`;
-  } else renderSettings();
+  } else {
+    renderSettings();
+    renderUpdates();
+  }
   $("#nav-count").textContent = state.monitors.length;
 }
 function stats() {
@@ -226,6 +239,7 @@ function radar() {
 function renderLive() {
   $("#nav-count").textContent = state.monitors.length;
   if (view === "events") return renderEvents();
+  if (view === "settings") return renderUpdates();
   if (view !== "monitors") return;
   $("#start-control").innerHTML = btn(
     state.running ? "stop" : "start",
@@ -234,6 +248,9 @@ function renderLive() {
     state.running ? "" : "primary",
   );
   $("#summary").innerHTML = stats();
+  const limited = state.monitors.some((m) => ["ping", "tcp"].includes(m.type));
+  $("#check-scope").classList.toggle("hidden", !limited);
+  $("#check-scope").textContent = t("checkScope");
   $("#list-count").textContent = state.monitors.length;
   const groups = [...new Set(state.monitors.map((m) => m.group))].sort();
   $("#groups").innerHTML =
@@ -254,7 +271,7 @@ function renderLive() {
       `<div class="empty">${radar()}<h2>${e(t("emptyTitle"))}</h2><p>${e(t("emptyText"))}</p>${btn("add", t("addFirst"), "plus", "primary")}<small>${e(t("emptyNote"))}</small></div>`;
   else
     $("#monitor-list").innerHTML =
-      `<table><colgroup><col width="31%"><col width="19%"><col width="10%"><col width="17%"><col width="11%"><col width="12%"></colgroup><thead><tr>${["name", "status", "latency", "history", "checked", "actions"].map((k) => `<th>${e(t(k))}</th>`).join("")}</tr></thead><tbody>${visible.map((m) => `<tr><td><div class="host-cell"><div class="host-symbol">${icon(m.type === "http" ? "globe" : m.type === "tcp" ? "port" : "server")}</div><div class="host-info"><button data-action="detail" data-id="${m.id}" class="host-title">${e(m.name)}</button><div class="host-sub" title="${e(m.address)}">${e(m.address)}${m.type === "tcp" ? ":" + m.port : ""}</div></div></div></td><td><div class="status-text ${m.enabled ? m.status : ""}"><span class="dot"></span>${e(t(m.enabled ? m.status : "disabled"))}</div><div class="status-detail" title="${e(detail(m))}">${e(state.running && m.enabled && typeof m.lastOk === "boolean" && m.checkedAt && m.streak < state.settings.confirmations && ((m.lastOk && m.status !== "up") || (!m.lastOk && m.status !== "down")) ? t("pendingState", { count: m.streak, total: state.settings.confirmations }) : detail(m) || m.type.toUpperCase())}</div></td><td class="latency-value">${m.latency == null ? "—" : Math.round(m.latency) + " <small>" + e(t("ms")) + "</small>"}</td><td>${bars(m.history)}</td><td class="mono muted">${m.checkedAt ? e(date(m.checkedAt, true)) : "—"}</td><td><div class="row-actions">${ibtn("toggle", t(m.enabled ? "disable" : "enable"), m.enabled ? "pause" : "play", m.id)}${ibtn("edit", t("edit"), "edit", m.id)}${ibtn("remove", t("delete"), "trash", m.id)}</div></td></tr>`).join("")}</tbody></table>${!visible.length ? `<div class="no-matches">${e(t("emptyFilter"))}</div>` : ""}<div class="table-footer"><span>${e(t("pagination", { from: list.length ? page * 50 + 1 : 0, to: Math.min((page + 1) * 50, list.length), total: list.length }))}</span><span class="pagination-buttons">${btn("prev-page", t("previous"), null, "ghost small", page === 0 ? "disabled" : "")}${btn("next-page", t("nextPage"), null, "ghost small", page >= pages - 1 ? "disabled" : "")}</span></div>`;
+      `<table><colgroup><col width="31%"><col width="19%"><col width="10%"><col width="17%"><col width="11%"><col width="12%"></colgroup><thead><tr>${["name", "status", "latency", "history", "checked", "actions"].map((k) => `<th>${e(t(k))}</th>`).join("")}</tr></thead><tbody>${visible.map((m) => `<tr><td><div class="host-cell"><div class="host-symbol">${icon(m.type === "http" ? "globe" : m.type === "tcp" ? "port" : "server")}</div><div class="host-info"><button data-action="detail" data-id="${m.id}" class="host-title">${e(m.name)}</button><div class="host-sub" title="${e(m.address)}">${e(m.address)}${["tcp", "ssh"].includes(m.type) ? ":" + m.port : ""}</div></div></div></td><td><div class="status-text ${m.enabled ? m.status : ""}"><span class="dot"></span>${e(statusText(m))}</div><div class="status-detail" title="${e(detail(m))}">${e(state.running && m.enabled && typeof m.lastOk === "boolean" && m.checkedAt && m.streak < state.settings.confirmations && ((m.lastOk && m.status !== "up") || (!m.lastOk && m.status !== "down")) ? t("pendingState", { count: m.streak, total: state.settings.confirmations }) : detail(m) || m.type.toUpperCase())}</div></td><td class="latency-value">${m.latency == null ? "—" : Math.round(m.latency) + " <small>" + e(t("ms")) + "</small>"}</td><td>${bars(m.history)}</td><td class="mono muted">${m.checkedAt ? e(date(m.checkedAt, true)) : "—"}</td><td><div class="row-actions">${ibtn("toggle", t(m.enabled ? "disable" : "enable"), m.enabled ? "pause" : "play", m.id)}${ibtn("edit", t("edit"), "edit", m.id)}${ibtn("remove", t("delete"), "trash", m.id)}</div></td></tr>`).join("")}</tbody></table>${!visible.length ? `<div class="no-matches">${e(t("emptyFilter"))}</div>` : ""}<div class="table-footer"><span>${e(t("pagination", { from: list.length ? page * 50 + 1 : 0, to: Math.min((page + 1) * 50, list.length), total: list.length }))}</span><span class="pagination-buttons">${btn("prev-page", t("previous"), null, "ghost small", page === 0 ? "disabled" : "")}${btn("next-page", t("nextPage"), null, "ghost small", page >= pages - 1 ? "disabled" : "")}</span></div>`;
   renderFooter();
 }
 function renderFooter() {
@@ -290,10 +307,28 @@ function renderEvents() {
 }
 const checkField = (name, checked, title, help = "") =>
   `<label class="check-field"><input type="checkbox" name="${name}" ${checked ? "checked" : ""}><span>${e(t(title))}${help ? `<small>${e(t(help))}</small>` : ""}</span></label>`;
+function renderUpdates() {
+  const el = $("#app-updates");
+  if (!el) return;
+  const u = state.appUpdate || { status: "development" };
+  const size = (bytes) =>
+    ((bytes || 0) / 1048576).toFixed(2) +
+    (state.settings.language === "ru" ? " МБ" : " MB");
+  const busy = ["checking", "downloading", "applying"].includes(u.status);
+  const text =
+    u.status === "error"
+      ? t(u.error)
+      : t("update." + u.status, {
+          version: u.version || state.version,
+          size: size(u.downloadBytes),
+          done: size(u.downloaded),
+        });
+  el.innerHTML = `<div class="update-heading"><h2>${e(t("updates"))}</h2><span class="muted">PulseDeck ${e(state.version)}</span></div><p>${e(t("updateHelp"))}</p><p class="${u.status === "error" ? "error" : ""}" role="status">${e(text)}</p>${u.status === "downloading" ? `<progress max="${u.downloadBytes || 1}" value="${u.downloaded || 0}" aria-label="${e(t("updateDownload"))}"></progress>` : ""}<div class="update-actions">${btn("check-update", t("updateCheck"), "down", "", busy || u.status === "development" ? "disabled" : "")}${u.status === "available" ? btn("download-update", t("updateDownload"), "down", "primary") : ""}${u.status === "ready" ? btn("apply-update", t("updateApply"), "check", "primary") : ""}</div>`;
+}
 function renderSettings() {
   const s = state.settings;
   $("#content").innerHTML =
-    `${heading(t("settingsTitle"), t("settingsSubtitle"))}<form id="settings-form"><div class="settings-grid"><div class="stack"><section class="panel"><h2>${e(t("general"))}</h2><div class="fields"><label class="field">${e(t("language"))}<select name="language"><option value="ru" ${s.language === "ru" ? "selected" : ""}>Русский</option><option value="en" ${s.language === "en" ? "selected" : ""}>English</option></select></label><label class="field">${e(t("theme"))}<select name="theme"><option value="dark" ${s.theme === "dark" ? "selected" : ""}>${e(t("dark"))}</option><option value="light" ${s.theme === "light" ? "selected" : ""}>${e(t("light"))}</option></select></label></div><div class="separator"></div>${checkField("autoStart", state.autoStart, "autoStart", "autoStartHelp")}${checkField("resume", s.resume, "resume", "resumeHelp")}</section><section class="panel"><h2>${e(t("checks"))}</h2><div class="fields">${[
+    `${heading(t("settingsTitle"), t("settingsSubtitle"))}<section class="panel update-panel" id="app-updates"></section><form id="settings-form"><div class="settings-grid"><div class="stack"><section class="panel"><h2>${e(t("general"))}</h2><div class="fields"><label class="field">${e(t("language"))}<select name="language"><option value="ru" ${s.language === "ru" ? "selected" : ""}>Русский</option><option value="en" ${s.language === "en" ? "selected" : ""}>English</option></select></label><label class="field">${e(t("theme"))}<select name="theme"><option value="dark" ${s.theme === "dark" ? "selected" : ""}>${e(t("dark"))}</option><option value="light" ${s.theme === "light" ? "selected" : ""}>${e(t("light"))}</option></select></label></div><div class="separator"></div>${checkField("autoStart", state.autoStart, "autoStart", "autoStartHelp")}${checkField("resume", s.resume, "resume", "resumeHelp")}</section><section class="panel"><h2>${e(t("checks"))}</h2><div class="fields">${[
       ["interval", 5, 3600],
       ["timeout", 1, 30],
       ["confirmations", 1, 5],
@@ -314,10 +349,10 @@ function modal(title, body, wide = false) {
   if (!dialog.open) dialog.showModal();
 }
 function editModal(m = {}) {
-  let type = m.type || "ping";
+  let type = m.type || "ssh";
   modal(
     t(m.id ? "editTitle" : "addTitle"),
-    `<form id="monitor-form"><input type="hidden" name="id" value="${e(m.id || "")}"><input type="hidden" name="type" value="${type}"><div class="type-tabs">${["ping", "tcp", "http"].map((value) => `<button type="button" data-monitor-type="${value}" class="${type === value ? "active" : ""}">${icon(value === "ping" ? "pulse" : value === "tcp" ? "port" : "globe")}${value === "http" ? "HTTP / HTTPS" : value.toUpperCase()}</button>`).join("")}</div><label class="field"><span id="address-label">${e(t(type === "http" ? "url" : "address"))}</span><input name="address" required value="${e(m.address || "")}" placeholder="${type === "http" ? "https://example.com" : "192.0.2.10"}" spellcheck="false"></label><div class="fields"><label class="field">${e(t("displayName"))}<input name="name" maxlength="100" value="${e(m.name || "")}" placeholder="${e(t("namePlaceholder"))}"></label><label class="field">${e(t("group"))}<input name="group" maxlength="60" value="${e(m.group || "")}" placeholder="${e(t("groupPlaceholder"))}"></label><label class="field ${type !== "tcp" ? "hidden" : ""}" id="port-field">${e(t("port"))}<input name="port" type="number" min="1" max="65535" value="${m.port || 443}"></label></div><p class="helper" id="check-help">${e(t(type + "Help"))}</p><div id="form-error" class="form-error"></div><div class="dialog-actions">${btn("close-modal", t("cancel"), null, "ghost")}<button type="submit" class="primary">${e(t("save"))}</button></div></form>`,
+    `<form id="monitor-form"><input type="hidden" name="id" value="${e(m.id || "")}"><input type="hidden" name="type" value="${type}"><div class="type-tabs">${["ssh", "http", "ping", "tcp"].map((value) => `<button type="button" data-monitor-type="${value}" class="${type === value ? "active" : ""}">${icon(value === "ping" ? "pulse" : value === "tcp" ? "port" : value === "ssh" ? "shield" : "globe")}${value === "http" ? "HTTP / HTTPS" : value.toUpperCase()}</button>`).join("")}</div><label class="field"><span id="address-label">${e(t(type === "http" ? "url" : "address"))}</span><input name="address" required value="${e(m.address || "")}" placeholder="${type === "http" ? "https://example.com" : "192.0.2.10"}" spellcheck="false"></label><div class="fields"><label class="field">${e(t("displayName"))}<input name="name" maxlength="100" value="${e(m.name || "")}" placeholder="${e(t("namePlaceholder"))}"></label><label class="field">${e(t("group"))}<input name="group" maxlength="60" value="${e(m.group || "")}" placeholder="${e(t("groupPlaceholder"))}"></label><label class="field ${!["tcp", "ssh"].includes(type) ? "hidden" : ""}" id="port-field">${e(t("port"))}<input name="port" type="number" min="1" max="65535" value="${m.port || (type === "ssh" ? 22 : 443)}"></label></div><p class="helper" id="check-help">${e(t(type + "Help"))}</p><div id="form-error" class="form-error"></div><div class="dialog-actions">${btn("close-modal", t("cancel"), null, "ghost")}<button type="submit" class="primary">${e(t("save"))}</button></div></form>`,
   );
   $("#monitor-form").dataset.enabled = m.enabled === false ? "false" : "true";
 }
@@ -348,7 +383,7 @@ function detailModal(m) {
   if (current.length) segments.push(current);
   modal(
     m.name,
-    `<p class="mono">${e(m.address)}${m.type === "tcp" ? ":" + m.port : ""} · ${m.type.toUpperCase()} · ${e(groupName(m.group))}</p><div class="status-text ${m.status}"><span class="dot"></span>${e(t(m.status))}<span class="muted">${e(detail(m))}</span></div><svg class="sparkline" viewBox="0 0 450 115" preserveAspectRatio="none" aria-label="${e(t("history"))}">${segments.map((points) => `<polyline points="${points.join(" ")}" fill="none" stroke="currentColor" stroke-width="2"/>`).join("")}</svg><div class="history-caption"><span>${e(t("last120"))}</span><span>${e(t("ms"))}</span></div><div class="detail-grid">${[
+    `<p class="mono">${e(m.address)}${["tcp", "ssh"].includes(m.type) ? ":" + m.port : ""} · ${m.type.toUpperCase()} · ${e(groupName(m.group))}</p><div class="status-text ${m.status}"><span class="dot"></span>${e(statusText(m))}<span class="muted">${e(detail(m))}</span></div><svg class="sparkline" viewBox="0 0 450 115" preserveAspectRatio="none" aria-label="${e(t("history"))}">${segments.map((points) => `<polyline points="${points.join(" ")}" fill="none" stroke="currentColor" stroke-width="2"/>`).join("")}</svg><div class="history-caption"><span>${e(t("last120"))}</span><span>${e(t("ms"))}</span></div><div class="detail-grid">${[
       [t("passed"), m.passed],
       [t("failed"), m.total - m.passed],
       [
@@ -395,10 +430,13 @@ document.addEventListener("click", (event) => {
   if (target.dataset.monitorType) {
     const type = target.dataset.monitorType;
     const form = $("#monitor-form");
+    const previousType = form.elements.type.value;
+    if (!["tcp", "ssh"].includes(previousType))
+      form.elements.port.value = type === "ssh" ? "22" : "443";
     form.elements.type.value = type;
     for (const el of document.querySelectorAll("[data-monitor-type]"))
       el.classList.toggle("active", el.dataset.monitorType === type);
-    $("#port-field").classList.toggle("hidden", type !== "tcp");
+    $("#port-field").classList.toggle("hidden", !["tcp", "ssh"].includes(type));
     $("#check-help").textContent = t(type + "Help");
     $("#address-label").textContent = t(type === "http" ? "url" : "address");
     form.elements.address.placeholder =
@@ -409,7 +447,16 @@ document.addEventListener("click", (event) => {
     m = state.monitors.find((row) => row.id === target.dataset.id);
   if (!action) return;
   safe(async () => {
-    if (action === "start" || action === "stop") {
+    if (["check-update", "download-update", "apply-update"].includes(action)) {
+      const method = {
+        "check-update": "checkUpdate",
+        "download-update": "downloadUpdate",
+        "apply-update": "applyUpdate",
+      }[action];
+      await api[method]();
+      state = await api.snapshot();
+      renderUpdates();
+    } else if (action === "start" || action === "stop") {
       state = await api[action]();
       renderLive();
     } else if (action === "add" || action === "edit") editModal(m);
@@ -572,7 +619,7 @@ document.addEventListener("submit", async (event) => {
         } else if (type === "tls")
           el.innerHTML = `<span class="${result.trusted ? "success" : "warning"}">${e(t(result.trusted ? "valid" : "notTrusted"))}</span><div class="result-label">${e(t("subject"))}</div>${e(result.subject)}<div class="result-label">${e(t("issuer"))}</div>${e(result.issuer)}<div class="result-label">${e(t("expires"))}</div>${e(date(Date.parse(result.to)))}<br><strong>${e(t("daysLeft", { days: result.days }))}</strong>`;
         else
-          el.innerHTML = `<span class="${result.ok ? "success" : "error"}">${e(t(result.ok ? "tcpOpen" : "tcpClosed", { port: values.port }))}</span>${result.ok ? "<br>" + result.latency + " " + e(t("ms")) : ""}`;
+          el.innerHTML = `<span class="${result.ok ? "success" : "error"}">${e(type === "ssh" ? detail(result) : t(result.ok ? "tcpOpen" : "tcpClosed", { port: values.port }))}</span>${result.ok ? "<br>" + result.latency + " " + e(t("ms")) : ""}`;
       } catch (error) {
         el.textContent = error.message;
       }

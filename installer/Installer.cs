@@ -21,8 +21,8 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("PulseDeck")]
 [assembly: AssemblyProduct("PulseDeck")]
 [assembly: AssemblyCompany("dmitriiavdeev")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 class Setup {
     const string AppId = "io.github.dmitriiavdeev.pulsedeck";
     const string AppName = "PulseDeck";
@@ -39,7 +39,7 @@ class Setup {
     static Window Window;
     static Button Primary, Close;
     static TextBlock Heading, Description, Status;
-    static string Version = "1.0.0";
+    static string Version = "1.1.0";
     static Mutex Instance;
     static string Language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? "ru" : "en";
     static Dictionary<string, Dictionary<string, string>> Words;

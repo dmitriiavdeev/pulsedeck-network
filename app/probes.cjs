@@ -26,6 +26,71 @@ function tcp(address, port, timeout) {
     socket.once("error", () => done(false, `Нет соединения с портом ${port}`));
   });
 }
+function ssh(address, port, timeout) {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    let socket,
+      timer,
+      finished = false,
+      connected = false;
+    let pending = Buffer.alloc(0),
+      received = 0,
+      lines = 0;
+    const done = (ok, detail) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      socket?.destroy();
+      resolve({
+        ok,
+        latency: ok ? Math.round(performance.now() - start) : null,
+        detail,
+      });
+    };
+    timer = setTimeout(
+      () => done(false, connected ? "sshNoGreeting" : "sshConnectTimeout"),
+      timeout,
+    );
+    try {
+      socket = net.connect({ host: address, port });
+      socket.once("connect", () => {
+        connected = true;
+        socket.write("SSH-2.0-PulseDeck\r\n");
+      });
+      socket.on("data", (chunk) => {
+        if (finished) return;
+        // Bound the identification exchange without retaining arbitrary remote data.
+        received += chunk.length;
+        pending = Buffer.concat([pending, chunk.subarray(0, 8192)]);
+        let end;
+        while ((end = pending.indexOf(10)) >= 0) {
+          const bytes = pending.subarray(0, end + 1);
+          pending = pending.subarray(end + 1);
+          const line = bytes.toString("latin1").replace(/\r?\n$/, "");
+          if (line.startsWith("SSH-")) {
+            const valid =
+              bytes.length <= 255 &&
+              /^SSH-(?:2\.0|1\.99)-[!-~]+(?: [\x20-\x7E]*)?$/.test(line);
+            return done(valid, valid ? "sshGreeting" : "sshInvalidGreeting");
+          }
+          if (
+            ++lines > 50 ||
+            bytes.length > 1024 ||
+            /[\x00-\x08\x0B-\x1F]/.test(line)
+          )
+            return done(false, "sshInvalidGreeting");
+        }
+        if (received > 8192 || pending.length > 1024)
+          done(false, "sshInvalidGreeting");
+      });
+      socket.once("error", () => done(false, "sshConnectionFailed"));
+      socket.once("end", () => done(false, "sshClosed"));
+      socket.once("close", () => done(false, "sshClosed"));
+    } catch {
+      done(false, "sshConnectionFailed");
+    }
+  });
+}
 function web(address, timeout) {
   const start = performance.now();
   const deadline = Date.now() + timeout;
@@ -162,11 +227,13 @@ function ping(address, timeout, executable) {
 }
 async function probe(monitor, timeout, executable) {
   try {
-    return await (monitor.type === "tcp"
-      ? tcp(monitor.address, monitor.port, timeout)
-      : monitor.type === "http"
-        ? web(monitor.address, timeout)
-        : ping(monitor.address, timeout, executable));
+    return await (monitor.type === "ssh"
+      ? ssh(monitor.address, monitor.port, timeout)
+      : monitor.type === "tcp"
+        ? tcp(monitor.address, monitor.port, timeout)
+        : monitor.type === "http"
+          ? web(monitor.address, timeout)
+          : ping(monitor.address, timeout, executable));
   } catch {
     return {
       ok: false,
@@ -236,4 +303,4 @@ function certificate(address, port = 443) {
     });
   });
 }
-module.exports = { probe, tcp, web, ping, lookup, certificate };
+module.exports = { probe, tcp, ssh, web, ping, lookup, certificate };

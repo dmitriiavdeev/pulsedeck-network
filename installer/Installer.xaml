@@ -65,7 +65,7 @@
         </StackPanel>
         <StackPanel Grid.Row="2">
           <Button x:Name="Primary" Content="Установить PulseDeck" Height="48" Background="#276C42" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
-          <TextBlock x:Name="Version" Text="Версия 1.0.0" Foreground="#8994A5" FontSize="11" HorizontalAlignment="Center" Margin="0,13,0,0"/>
+          <TextBlock x:Name="Version" Text="Версия 1.1.0" Foreground="#8994A5" FontSize="11" HorizontalAlignment="Center" Margin="0,13,0,0"/>
         </StackPanel>
       </Grid>
       <Button x:Name="Close" Grid.Column="1" Content="×" FontSize="23" Foreground="#8390A3" Background="Transparent" Width="36" Height="36" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,9,10,0"/>

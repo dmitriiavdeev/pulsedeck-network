@@ -972,7 +972,7 @@ dialog::backdrop {
 }
 .type-tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 7px;
   margin-bottom: 20px;
 }
@@ -1110,4 +1110,34 @@ dialog::backdrop {
     padding-left: 10px;
     padding-right: 10px;
   }
+}
+
+.check-scope {
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px 15px;
+  margin: 0 0 22px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.update-panel {
+  margin-bottom: 24px;
+}
+.update-heading,
+.update-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.update-heading {
+  justify-content: space-between;
+}
+.update-panel progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--accent);
+  margin-bottom: 14px;
 }

@@ -34,6 +34,15 @@ try {
   });
   await window.waitForSelector('[data-action="add"]');
   await window.click('[data-action="add"]');
+  assert.equal(
+    await window.locator("#monitor-form input[name=type]").inputValue(),
+    "ssh",
+  );
+  assert.equal(
+    await window.locator("#monitor-form input[name=port]").inputValue(),
+    "22",
+  );
+  await window.click("[data-monitor-type=ping]");
   await window.fill("#monitor-form input[name=address]", "127.0.0.1");
   await window.fill("#monitor-form input[name=name]", "Local loopback");
   await window.click("#monitor-form [type=submit]");
@@ -117,6 +126,96 @@ try {
     isolated: typeof window.process,
   }));
   assert.deepEqual(cspViolations, { node: "undefined", isolated: "undefined" });
+  assert.equal(
+    await window.locator("#app-updates h2").innerText(),
+    "Обновления",
+  );
+  const sshSockets = new Set();
+  let sshHealthy = false;
+  const sshServer = net.createServer((socket) => {
+    sshSockets.add(socket);
+    socket.on("error", () => {});
+    socket.on("close", () => sshSockets.delete(socket));
+    socket.on("data", () => {
+      if (sshHealthy) socket.end("SSH-2.0-UI_fixture\r\n");
+    });
+  });
+  await new Promise((resolve) => sshServer.listen(0, "127.0.0.1", resolve));
+  try {
+    await window.click("[data-view=monitors]");
+    await window.click("[data-action=add]");
+    await window.fill("#monitor-form input[name=address]", "127.0.0.1");
+    await window.fill("#monitor-form input[name=name]", "SSH fixture");
+    await window.fill(
+      "#monitor-form input[name=port]",
+      String(sshServer.address().port),
+    );
+    await window.click("#monitor-form [type=submit]");
+    await window.waitForSelector('.host-title:text-is("SSH fixture")');
+    await window.click("[data-action=start]");
+    await until(() =>
+      window.evaluate(
+        async () =>
+          (await window.deck.snapshot()).monitors.find(
+            (m) => m.name === "SSH fixture",
+          )?.status === "down",
+      ),
+    );
+    await until(async () =>
+      /SSH не отвечает/.test(
+        await window
+          .locator("tr", {
+            has: window.locator('.host-title:text-is("SSH fixture")'),
+          })
+          .innerText(),
+      ),
+    );
+    assert.match(
+      await window
+        .locator("tr", {
+          has: window.locator('.host-title:text-is("SSH fixture")'),
+        })
+        .innerText(),
+      /SSH не отвечает/,
+    );
+    sshHealthy = true;
+    await until(() =>
+      window.evaluate(
+        async () =>
+          (await window.deck.snapshot()).monitors.find(
+            (m) => m.name === "SSH fixture",
+          )?.status === "up",
+      ),
+    );
+    await until(async () =>
+      /SSH отвечает/.test(
+        await window
+          .locator("tr", {
+            has: window.locator('.host-title:text-is("SSH fixture")'),
+          })
+          .innerText(),
+      ),
+    );
+    assert.match(
+      await window
+        .locator("tr", {
+          has: window.locator('.host-title:text-is("SSH fixture")'),
+        })
+        .innerText(),
+      /SSH отвечает/,
+    );
+    assert.ok(
+      await window.evaluate(async () =>
+        (await window.deck.snapshot()).events.some(
+          (event) => event.code === "ssh.recovered",
+        ),
+      ),
+    );
+    await window.click("[data-action=stop]");
+  } finally {
+    for (const socket of sshSockets) socket.destroy();
+    await new Promise((resolve) => sshServer.close(resolve));
+  }
   assert.deepEqual(errors, []);
   console.log(
     "UI passed: add monitor, live ICMP, background checks after close, TCP tool, RU/EN, dark/light, 20 sounds, notification toggles, isolated renderer.",
@@ -134,7 +233,7 @@ try {
   await application.close();
 }
 const saved = JSON.parse(await readFile(join(data, "pulsedeck.json"), "utf8"));
-assert.equal(saved.monitors.length, 1);
+assert.equal(saved.monitors.length, 2);
 assert.ok(saved.states[saved.monitors[0].id].total >= 2);
 assert.ok(saved.secret);
 assert.equal(

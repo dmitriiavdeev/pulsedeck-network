@@ -15,6 +15,9 @@ const methods = [
   "diagnose",
   "window",
   "link",
+  "checkUpdate",
+  "downloadUpdate",
+  "applyUpdate",
 ];
 const api = Object.fromEntries(
   methods.map((method) => [
